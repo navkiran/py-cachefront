@@ -1,0 +1,51 @@
+version: '3'
+services:
+  storage-engine:
+    build: ./storage-engine
+    environment:
+      - MYSQL_DATABASE=mydb
+      - MYSQL_ROOT_PASSWORD=secret
+    ports:
+      - "3306:3306"
+
+  query-engine:
+    build: ./query-engine
+    depends_on:
+      - storage-engine
+      - redis
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "storage-engine"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: on-failure
+    environment:
+      - DB_HOST=storage-engine
+      - DB_USER=root
+      - DB_PASSWORD=secret
+      - DB_NAME=mydb
+      - CACHE_HOST=redis
+      - CACHE_PORT=6379
+
+  change-data-capture:
+    build: ./change-data-capture
+    depends_on:
+      - storage-engine
+      - redis
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "storage-engine"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    environment:
+      - DB_HOST=storage-engine
+      - DB_USER=root
+      - DB_PASSWORD=secret
+      - DB_NAME=mydb
+      - CACHE_HOST=redis
+      - CACHE_PORT=6379
+
+  redis:
+    image: redis
+    ports:
+      - "6379:6379"
